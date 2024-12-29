@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vehicle Monitoring Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Google Font: Roboto (Optional) -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Moment.js CDN (Required for Chart.js Time Scale) -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <!-- Chart.js Adapter for Moment.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
+    <!-- Bootstrap 5 CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* User-Provided Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #000000; 
+            color: #cccccc; 
+            min-height: 100vh;
+            position: relative;
+        }
+
+        header {
+            background-color: #242424;
+            color: white;
+            padding: 1.5em;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 300;
+            margin: 0;
+        }
+
+        main {
+            padding-top: 80px; /* Adjusted for header height */
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .status {
+            font-size: 1em;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .search-container {
+            position: fixed;
+            top: 20px;
+            right: 120px;
+            z-index: 101;
+        }
+
+        #search-bar {
+            padding: 8px 15px;
+            font-size: 1em;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            background-color: #242424;
+            color: white;
+            width: 150px;
+            transition: width 0.3s ease;
+        }
+
+        #search-bar:focus {
+            outline: none;
+            border-color: #007BFF;
+            width: 200px;
+        }
+
+        #charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            min-height: 400px;
+        }
+
+        .chart-container {
+            background: rgb(31, 31, 31);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            height: 300px;
+            min-width: 300px;
+            position: relative;
+            transition: height 0.3s ease;
+        }
+
+        .chart-title {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .hex-value {
+            font-family: monospace;
+            color: #00ff00;
+        }
+        .numeric-value {
+            font-weight: bold;
+            color: #fff;
+        }
+        .unit {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .value-cell {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #vehicle-info {
+            background: rgb(31, 31, 31);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+
+        #vehicle-info h2 {
+            font-size: 1em;
+            margin: 0 0 15px 0;
+            color: #fff;
+        }
+
+        .info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .info-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .info-section h4 {
+            font-size: 0.9em;
+            margin: 0 0 8px 0;
+            color: #888;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 4px;
+            position: relative;
+        }
+
+        .info-item .label {
+            color: #888;
+            font-size: 0.75em;
+            margin-bottom: 2px;
+        }
+
+        .info-item .value {
+            color: #fff;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            position: absolute;
+            left: -3px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 50%;
+        }
+
+        .status-good {
+            background-color: #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+
+        .status-warning {
+            background-color: #ffff00;
+            box-shadow: 0 0 5px #ffff00;
+        }
+
+        .status-error {
+            background-color: #ff0000;
+            box-shadow: 0 0 5px #ff0000;
+        }
+
+        /* Add animation for real-time updates */
+        @keyframes highlight {
+            0% { 
+                background-color: rgba(0, 255, 0, 0.1);
+            }
+            100% { 
+                background-color: transparent;
+            }
+        }
+
+        .value-update {
+            animation: highlight 0.5s ease-out;
+        }
+
+        /* Values Section at the Bottom */
+        #values-section {
+            margin-top: 40px;
+            background: rgb(31, 31, 31);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #values-section h3 {
+            color: #fff;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .value-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .value-label {
+            color: #888;
+            font-size: 0.85em;
+            flex: 1;
+        }
+
+        .value-display {
+            color: #fff;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .minimize-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .minimize-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-container.minimized {
+            height: 50px !important;
+            overflow: hidden;
+        }
+
+        .chart-container.minimized canvas {
+            transform: scale(1, 0.2);
+            transform-origin: top;
+        }
+
+        /* Additional Styles for Vehicle Information */
+        .info-section .status-indicator {
+            left: -10px;
+        }
+
+        /* Ensure that the main-content has enough padding */
+        .main-content {
+            margin-left: 320px;
+            flex: 1;
+            padding-right: 20px;
+        }
+
+        .dashboard-layout {
+            display: flex;
+            position: relative;
+        }
+
+        .left-sidebar {
+            position: fixed;
+            top: 80px; /* Adjusted for header height */
+            left: 20px;
+            width: 280px;
+            background: transparent;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+
+        /* No Connection Message */
+        .no-connection-message {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .no-connection-message .message-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .no-connection-message i {
+            font-size: 48px;
+            color: #666;
+        }
+
+        .no-connection-message h2 {
+            color: #fff;
+            margin: 0;
+        }
+
+        .no-connection-message p {
+            color: #888;
+            margin: 0;
+        }
+
+        /* No Data Message in Vehicle Info */
+        #vehicle-no-data {
+            display: none;
+            text-align: center;
+            color: #888;
+            font-size: 1em;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <h1>Vehicle Monitoring Dashboard</h1>
+       
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="dashboard-layout">
+            <!-- Left Sidebar: Vehicle Information -->
+            <aside class="left-sidebar">
+                <div id="vehicle-info">
+                    <h2>Vehicle Information</h2>
+                    <div id="vehicle-pids" class="info-grid">
+                        <!-- Vehicle PIDs will be populated here -->
+                    </div>
+                    <div id="vehicle-no-data">
+                        <p>No data available.</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <!-- Controls Section -->
+                <div class="controls">
+                    <div class="status">
+                        Status: <span id="connection-status">Connected</span>
+                    </div>
+                    <!-- Additional controls can be added here -->
+                </div>
+
+                <!-- Charts Container -->
+                <div id="charts-container">
+                    <!-- Charts will be dynamically added here -->
+                </div>
+
+                <!-- No Connection Message -->
+                <div class="no-connection-message" id="no-connection-message" style="display: none;">
+                    <div class="message-content">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h2>No Connection</h2>
+                        <p>Unable to fetch real-time data.</p>
+                    </div>
+                </div>
+
+                <!-- Values Section -->
+                <div id="values-section">
+                    
+                    <div class="values-grid" id="values-grid">
+                        <!-- Value PIDs will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Removed Login Modal -->
+
+    <!-- Bootstrap 5 JS (optional for interactive components) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Font Awesome CDN for Icons (used in No Connection Message) -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    
+    <script>
+        // Comprehensive PID to Category Mapping
+        const PID_CATEGORY_MAPPING = {
+            // Basic Info
+            'VIN': 'Basic Info',
+            'VEHICLE_TYPE': 'Basic Info',
+            'MODEL': 'Basic Info',
+            'BODY_CLASS': 'Basic Info',
+
+            // Manufacturer Details
+            'MANUFACTURER': 'Manufacturer Details',
+            'SERIES': 'Manufacturer Details',
+
+            // Plant Information
+            'PLANT_COMPANY': 'Plant Information',
+            'PLANT_CITY': 'Plant Information',
+            'PLANT_STATE': 'Plant Information',
+            'PLANT_COUNTRY': 'Plant Information',
+
+            // Additional Info
+            'GVWR': 'Additional Info',
+            'DRIVE_TYPE': 'Additional Info',
+            'DOORS': 'Additional Info',
+            'ERROR_INFO': 'Additional Info',
+
+            // Fuel Information
+            'FUEL_TYPE': 'Fuel Information',
+
+            // Diagnostics
+            'EOBD': 'Diagnostics',
+            'MONITOR_STATUS_SINCE_DTCS_CLEARED': 'Diagnostics',
+            'TIME_SINCE_TROUBLE_CODES_CLEARED': 'Diagnostics',
+            'TIME_RUN_WITH_MIL_ON': 'Diagnostics',
+
+            // System Information
+            'WARM_UPS_SINCE_CODES_CLEARED': 'System Information',
+            'DISTANCE_TRAVELED_SINCE_CODES_CLEARED': 'System Information',
+
+            // PIDS_SUPPORT_41_60
+            'PIDS_SUPPORT_41_60': 'Support Info',
+
+            // Other PIDs can be mapped here as needed
+        };
+
+        // Complete PID_MAPPING based on the provided enum and named PIDs
+        const PID_MAPPING = {
+            // Named PIDs from vehicle_info
+            'VIN': 'VIN',
+            'VEHICLE_TYPE': 'VEHICLE_TYPE',
+            'MODEL': 'MODEL',
+            'BODY_CLASS': 'BODY_CLASS',
+            'MANUFACTURER': 'MANUFACTURER',
+            'SERIES': 'SERIES',
+            'PLANT_COMPANY': 'PLANT_COMPANY',
+            'PLANT_CITY': 'PLANT_CITY',
+            'PLANT_STATE': 'PLANT_STATE',
+            'PLANT_COUNTRY': 'PLANT_COUNTRY',
+            'GVWR': 'GVWR',
+            'DRIVE_TYPE': 'DRIVE_TYPE',
+            'DOORS': 'DOORS',
+            'ERROR_INFO': 'ERROR_INFO',
+
+            // Numerical PIDs from enum
+            '0': 'PIDS_SUPPORT_01_20',
+            '1': 'MONITOR_STATUS_SINCE_DTCS_CLEARED',
+            '2': 'FREEZE_DTC',
+            '3': 'FUEL_SYSTEM_STATUS',
+            '4': 'CALCULATED_ENGINE_LOAD',
+            '5': 'ENGINE_COOLANT_TEMPERATURE',
+            '6': 'SHORT_TERM_FUEL_TRIM_BANK_1',
+            '7': 'LONG_TERM_FUEL_TRIM_BANK_1',
+            '8': 'SHORT_TERM_FUEL_TRIM_BANK_2',
+            '9': 'LONG_TERM_FUEL_TRIM_BANK_2',
+            '10': 'FUEL_PRESSURE',
+            '11': 'INTAKE_MANIFOLD_ABSOLUTE_PRESSURE',
+            '12': 'ENGINE_RPM',
+            '13': 'VEHICLE_SPEED',
+            '14': 'TIMING_ADVANCE',
+            '15': 'AIR_INTAKE_TEMPERATURE',
+            '16': 'MAF_AIR_FLOW_RATE',
+            '17': 'THROTTLE_POSITION',
+            '18': 'COMMANDED_SECONDARY_AIR_STATUS',
+            '19': 'OXYGEN_SENSORS_PRESENT_IN_2_BANKS',
+            // PIDs 20-40 are removed as per the requirement
+            '41': 'OXYGEN_SENSOR_6_FUEL_AIR_EQUIVALENCE_RATIO',
+            '42': 'OXYGEN_SENSOR_7_FUEL_AIR_EQUIVALENCE_RATIO',
+            '43': 'OXYGEN_SENSOR_8_FUEL_AIR_EQUIVALENCE_RATIO',
+            '44': 'COMMANDED_EGR',
+            '45': 'EGR_ERROR',
+            '46': 'COMMANDED_EVAPORATIVE_PURGE',
+            '47': 'FUEL_TANK_LEVEL_INPUT',
+            '48': 'WARM_UPS_SINCE_CODES_CLEARED',
+            '49': 'DISTANCE_TRAVELED_SINCE_CODES_CLEARED',
+            '50': 'EVAP_SYSTEM_VAPOR_PRESSURE',
+            '51': 'ABSOLUTE_BAROMETRIC_PRESSURE',
+            '60': 'CATALYST_TEMPERATURE_BANK_1_SENSOR_1',
+            '61': 'CATALYST_TEMPERATURE_BANK_2_SENSOR_1',
+            '62': 'CATALYST_TEMPERATURE_BANK_1_SENSOR_2',
+            '63': 'CATALYST_TEMPERATURE_BANK_2_SENSOR_2',
+            '64': 'PIDS_SUPPORT_41_60', // Already included
+            '65': 'MONITOR_STATUS_THIS_DRIVE_CYCLE',
+            '66': 'CONTROL_MODULE_VOLTAGE',
+            '67': 'ABSOLUTE_LOAD_VALUE',
+            '68': 'FUEL_AIR_COMMANDED_EQUIVALENCE_RATE',
+            '69': 'RELATIVE_THROTTLE_POSITION',
+            '70': 'AMBIENT_AIR_TEMPERATURE',
+            '71': 'ABSOLUTE_THROTTLE_POSITION_B',
+            '72': 'ABSOLUTE_THROTTLE_POSITION_C',
+            '73': 'ABSOLUTE_THROTTLE_POSITION_D',
+            '74': 'ABSOLUTE_THROTTLE_POSITION_E',
+            '75': 'ABSOLUTE_THROTTLE_POSITION_F',
+            '76': 'COMMANDED_THROTTLE_ACTUATOR',
+            '77': 'TIME_RUN_WITH_MIL_ON',
+            '78': 'TIME_SINCE_TROUBLE_CODES_CLEARED',
+            '81': 'FUEL_TYPE',
+            '82': 'ETHANOL_FUEL_PERCENTAGE',
+            '83': 'ABSOLUTE_EVAP_SYSTEM_VAPOR_PRESSURE',
+            '89': 'FUEL_RAIL_ABSOLUTE_PRESSURE',
+            '90': 'RELATIVE_ACCELERATOR_PEDAL_POSITTION',
+            '91': 'HYBRID_BATTERY_PACK_REMAINING_LIFE',
+            '92': 'ENGINE_OIL_TEMPERATURE',
+            '93': 'FUEL_INJECTION_TIMING',
+            '94': 'ENGINE_FUEL_RATE',
+            '95': 'EMISSION_REQUIREMENT_TO_WHICH_VEHICLE_IS_DESIGNED',
+        };
+
+        // PID numbers to include in charts based on the enum (Excluded '3' and '19')
+        const chartPIDs = [
+            '4',  // CALCULATED_ENGINE_LOAD
+            '5',  // ENGINE_COOLANT_TEMPERATURE
+            '12', // ENGINE_RPM
+            '13', // VEHICLE_SPEED
+            '14', // TIMING_ADVANCE
+            '15', // AIR_INTAKE_TEMPERATURE
+            '16', // MAF_AIR_FLOW_RATE
+            '17', // THROTTLE_POSITION
+            '18', // COMMANDED_SECONDARY_AIR_STATUS
+            // '19', // OXYGEN_SENSORS_PRESENT_IN_2_BANKS (excluded)
+            '41', // OXYGEN_SENSOR_6_FUEL_AIR_EQUIVALENCE_RATIO
+            '42', // OXYGEN_SENSOR_7_FUEL_AIR_EQUIVALENCE_RATIO
+            '43', // OXYGEN_SENSOR_8_FUEL_AIR_EQUIVALENCE_RATIO
+            '44', // COMMANDED_EGR
+            '45', // EGR_ERROR
+            '46', // COMMANDED_EVAPORATIVE_PURGE
+            '47', // FUEL_TANK_LEVEL_INPUT
+            '48', // WARM_UPS_SINCE_CODES_CLEARED
+            '49', // DISTANCE_TRAVELED_SINCE_CODES_CLEARED
+            '50', // EVAP_SYSTEM_VAPOR_PRESSURE
+            '51', // ABSOLUTE_BAROMETRIC_PRESSURE
+            '60', // PIDS_SUPPORT_41_60
+            '61', // CATALYST_TEMPERATURE_BANK_2_SENSOR_1
+            '62', // CATALYST_TEMPERATURE_BANK_1_SENSOR_2
+            '63', // CATALYST_TEMPERATURE_BANK_2_SENSOR_2
+            '64', // PIDS_SUPPORT_41_60
+            '65', // MONITOR_STATUS_THIS_DRIVE_CYCLE
+            '66', // CONTROL_MODULE_VOLTAGE
+            '67', // ABSOLUTE_LOAD_VALUE
+            '68', // FUEL_AIR_COMMANDED_EQUIVALENCE_RATE
+            '69', // RELATIVE_THROTTLE_POSITION
+            '70', // AMBIENT_AIR_TEMPERATURE
+            '71', // ABSOLUTE_THROTTLE_POSITION_B
+            '72', // ABSOLUTE_THROTTLE_POSITION_C
+            '73', // ABSOLUTE_THROTTLE_POSITION_D
+            '74', // ABSOLUTE_THROTTLE_POSITION_E
+            '75', // ABSOLUTE_THROTTLE_POSITION_F
+            '76', // COMMANDED_THROTTLE_ACTUATOR
+            '77', // TIME_RUN_WITH_MIL_ON
+            '78', // TIME_SINCE_TROUBLE_CODES_CLEARED
+            '81', // FUEL_TYPE
+            '82', // ETHANOL_FUEL_PERCENTAGE
+            '83', // ABSOLUTE_EVAP_SYSTEM_VAPOR_PRESSURE
+            '89', // FUEL_RAIL_ABSOLUTE_PRESSURE
+            '90', // RELATIVE_ACCELERATOR_PEDAL_POSITTION
+            '91', // HYBRID_BATTERY_PACK_REMAINING_LIFE
+            '92', // ENGINE_OIL_TEMPERATURE
+            '93', // FUEL_INJECTION_TIMING
+            '94', // ENGINE_FUEL_RATE
+            '95', // EMISSION_REQUIREMENT_TO_WHICH_VEHICLE_IS_DESIGNED
+        ];
+
+        // PID categories to display as values (if any)
+        const valuePIDs = [
+            // Add PID numbers here if you want to display them in the "Values Section"
+            // Example:
+            // 'FREEZE_DTC',
+            // 'OXYGEN_SENSORS_PRESENT_IN_4_BANKS',
+            // ... etc.
+        ];
+
+        // Data storage
+        let vehicleInfo = {};
+        let realtimeData = {};
+
+        // Chart instances
+        const charts = {};
+
+        // Function to fetch vehicle info
+        async function fetchVehicleInfo() {
+            try {
+                const response = await fetch('/api/vehicle-info');
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                console.log('Vehicle Info Data:', data); // Debug log
+                vehicleInfo = data;
+                displayVehicleInfo();
+            } catch (error) {
+                console.error('Failed to fetch vehicle info:', error);
+                displayFetchError('vehicle-pids', 'Unable to load vehicle information. Please check your connection or try again later.');
+            }
+        }
+
+        // Function to display fetch errors
+        function displayFetchError(elementId, message) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = ''; // Clear existing content
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger';
+            errorDiv.textContent = message;
+            container.appendChild(errorDiv);
+        }
+
+        // Function to format PID names for display (snake_case to Title Case)
+        function formatPIDName(pidName) {
+            const label = PID_MAPPING[pidName] || `PID ${pidName}`;
+            return label.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+        }
+
+        // Function to fetch real-time data
+        async function fetchRealtimeData() {
+            try {
+                const response = await fetch('/api/realtime-data');
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                console.log('Real-Time Data:', data); // Debug log
+                realtimeData = data;
+                document.getElementById('no-connection-message').style.display = 'none';
+                document.getElementById('charts-container').style.display = 'grid';
+                document.getElementById('values-section').style.display = 'block';
+                document.getElementById('vehicle-pids').style.display = 'block';
+                document.getElementById('vehicle-no-data').style.display = 'none';
+                displayCharts();
+                displayValues();
+                updateConnectionStatus(true);
+            } catch (error) {
+                console.warn('Failed to fetch real-time data:', error);
+                hideAllCharts();
+                displayNoConnection();
+                displayVehicleNoData();
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Function to display charts
+        function displayCharts() {
+            chartPIDs.forEach(pidNumber => {
+                const pidData = realtimeData.pids.find(p => p.name === pidNumber);
+                if (pidData) {
+                    // If chart doesn't exist, create it
+                    if (!charts[pidNumber]) {
+                        const label = PID_MAPPING[pidNumber] || `PID ${pidNumber}`;
+                        createChart(pidNumber, formatPIDName(label));
+                    }
+                    // Update chart with new data
+                    updateChart(pidNumber, pidData.value);
+                }
+            });
+        }
+
+        // Function to display vehicle info
+        function displayVehicleInfo() {
+            const vehiclePidsDiv = document.getElementById('vehicle-pids');
+            vehiclePidsDiv.innerHTML = '';
+
+            // Object to hold categorized PIDs
+            const categorizedPIDs = {};
+
+            // Iterate through each PID in vehicleInfo
+            vehicleInfo.pids.forEach(pid => {
+                const descriptiveName = PID_MAPPING[pid.name] || `PID ${pid.name}`;
+                const category = PID_CATEGORY_MAPPING[descriptiveName] || 'Additional Info';
+
+                if (!categorizedPIDs[category]) {
+                    categorizedPIDs[category] = [];
+                }
+
+                categorizedPIDs[category].push({
+                    label: formatPIDName(descriptiveName),
+                    value: pid.value
+                });
+            });
+
+            // Iterate through each category and create sections
+            for (const [category, pids] of Object.entries(categorizedPIDs)) {
+                const section = document.createElement('div');
+                section.className = 'info-section';
+
+                const sectionTitle = document.createElement('h4');
+                sectionTitle.textContent = category;
+                section.appendChild(sectionTitle);
+
+                pids.forEach(pid => {
+                    const infoItem = document.createElement('div');
+                    infoItem.className = 'info-item';
+
+                    const label = document.createElement('div');
+                    label.className = 'label';
+                    label.textContent = pid.label;
+
+                    const value = document.createElement('div');
+                    value.className = 'value';
+                    value.textContent = pid.value;
+
+                    infoItem.appendChild(label);
+                    infoItem.appendChild(value);
+                    section.appendChild(infoItem);
+                });
+
+                vehiclePidsDiv.appendChild(section);
+            }
+        }
+
+        // Function to display no connection message
+        function displayNoConnection() {
+            document.getElementById('no-connection-message').style.display = 'flex';
+            document.getElementById('charts-container').style.display = 'none';
+            document.getElementById('values-section').style.display = 'none';
+        }
+
+        // Function to display "No data" in Vehicle Info
+        function displayVehicleNoData() {
+            document.getElementById('vehicle-pids').style.display = 'none';
+            document.getElementById('vehicle-no-data').style.display = 'block';
+        }
+
+        // Function to display values (if any)
+        function displayValues() {
+            const valuesGrid = document.getElementById('values-grid');
+            valuesGrid.innerHTML = '';
+
+            valuePIDs.forEach(pidNumber => {
+                const pidData = realtimeData.pids.find(p => p.name === pidNumber);
+                if (pidData) {
+                    const valueItem = document.createElement('div');
+                    valueItem.className = 'value-item';
+
+                    const label = document.createElement('div');
+                    label.className = 'value-label';
+                    label.textContent = formatPIDName(PID_MAPPING[pidNumber] || `PID ${pidNumber}`);
+
+                    const value = document.createElement('div');
+                    value.className = 'value-display';
+                    value.textContent = pidData.value;
+
+                    valueItem.appendChild(label);
+                    valueItem.appendChild(value);
+                    valuesGrid.appendChild(valueItem);
+                }
+            });
+        }
+
+        // Utility function to parse value and unit
+        function parseValue(valueStr) {
+            const match = valueStr.match(/([-+]?[0-9]*\.?[0-9]+)\s*(.*)/);
+            if (match) {
+                return [parseFloat(match[1]), match[2] || ''];
+            }
+            return [0, ''];
+        }
+
+        // Utility function to generate random color for charts
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 200);
+            const g = Math.floor(Math.random() * 200);
+            const b = Math.floor(Math.random() * 200);
+            return `rgba(${r}, ${g}, ${b}, 1)`;
+        }
+
+        // Function to toggle minimize/maximize chart
+        function toggleMinimize(container) {
+            container.classList.toggle('minimized');
+        }
+
+        // Function to update connection status
+        function updateConnectionStatus(isConnected) {
+            const statusSpan = document.getElementById('connection-status');
+            if (isConnected) {
+                statusSpan.textContent = 'Connected';
+                statusSpan.style.color = '#00ff00';
+            } else {
+                statusSpan.textContent = 'Disconnected';
+                statusSpan.style.color = '#ff0000';
+            }
+        }
+
+        // Function to create a new chart
+        function createChart(pidNumber, label) {
+            const chartsDiv = document.getElementById('charts-container');
+
+            // Create chart container
+            const container = document.createElement('div');
+            container.className = 'chart-container';
+            container.id = `chart-container-${pidNumber}`;
+
+            // Create minimize button
+            const minimizeBtn = document.createElement('button');
+            minimizeBtn.className = 'minimize-btn';
+            minimizeBtn.innerHTML = '&#x2212;'; // Minus sign
+            minimizeBtn.onclick = () => toggleMinimize(container);
+            container.appendChild(minimizeBtn);
+
+            // Chart title
+            const chartTitle = document.createElement('div');
+            chartTitle.className = 'chart-title';
+            chartTitle.textContent = label;
+            container.appendChild(chartTitle);
+
+            // Canvas for Chart.js
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${pidNumber}`;
+            container.appendChild(canvas);
+
+            chartsDiv.appendChild(container);
+
+            // Extract unit from the first value
+            const firstPidData = realtimeData.pids.find(p => p.name === pidNumber);
+            let [initialValue, unit] = parseValue(firstPidData.value);
+
+            // Initialize Chart.js chart
+            const ctx = canvas.getContext('2d');
+            charts[pidNumber] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [], // Timestamps
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: getRandomColor(),
+                        backgroundColor: 'rgba(0, 123, 255, 0.3)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                parser: 'HH:mm:ss',
+                                tooltipFormat: 'HH:mm:ss',
+                                unit: 'second',
+                                displayFormats: {
+                                    second: 'HH:mm:ss'
+                                }
+                            },
+                            grid: {
+                                color: '#333'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time',
+                                color: '#e0e0e0'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#333'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            },
+                            title: {
+                                display: true,
+                                text: unit || 'Value', // Set unit as Y-axis title
+                                color: '#e0e0e0'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to update an existing chart
+        function updateChart(pidNumber, valueStr) {
+            const chart = charts[pidNumber];
+            if (chart) {
+                const [pidValue, unit] = parseValue(valueStr);
+                const currentTime = new Date();
+
+                chart.data.labels.push(currentTime);
+                chart.data.datasets[0].data.push(pidValue);
+
+                // Keep only the latest 30 data points
+                if (chart.data.labels.length > 30) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                chart.update();
+            }
+        }
+
+        // Function to hide all charts if no data
+        function hideAllCharts() {
+            const chartsDiv = document.getElementById('charts-container');
+            chartsDiv.innerHTML = '';
+            // Destroy existing charts to free up memory
+            Object.keys(charts).forEach(pidNumber => {
+                charts[pidNumber].destroy();
+                delete charts[pidNumber];
+            });
+        }
+
+        // Initial fetch
+        fetchVehicleInfo();
+        fetchRealtimeData();
+
+        // Periodic updates every 2.5 seconds (2500 ms)
+        setInterval(() => {
+            fetchVehicleInfo();
+            fetchRealtimeData();
+        }, 2500);
+    </script>
+</body>
+</html>

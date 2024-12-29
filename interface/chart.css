@@ -1,0 +1,39 @@
+/* chart.css */
+
+/* Grafik konteyneri */
+.chart-container {
+    position: relative;
+    margin: 20px auto;
+    height: 400px; /* Sabit yükseklik */
+    width: 100%;  /* Yüzde bazında genişlik, ekran boyutlarına göre daha esnek */
+    max-width: 800px; /* Maksimum genişlik sınırı */
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box; /* Padding ve border'ı da genişlik ve yükseklik içinde hesaplamak */
+    overflow: hidden; /* Fazla taşan içerik gizlenir */
+}
+
+/* Canvas elementini daha esnek hale getirme */
+canvas {
+    display: block;
+    width: 100%; /* Canvas'ın tüm genişliği kaplamasını sağlar */
+    height: 100%; /* Canvas'ın tüm yüksekliği kaplamasını sağlar */
+    object-fit: contain; /* Görselin yerleşim biçimini düzenler (gerekirse sığar) */
+}
+
+/* Ekran boyutuna göre daha duyarlı hale getirme */
+@media screen and (max-width: 768px) {
+    .chart-container {
+        height: 300px; /* Mobil cihazlarda grafik yüksekliğini küçültme */
+        width: 95%;  /* Mobilde daha küçük bir genişlik */
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .chart-container {
+        height: 250px; /* Çok küçük ekranlarda grafik yüksekliği daha da küçülür */
+    }
+}
